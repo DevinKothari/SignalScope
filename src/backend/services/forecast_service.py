@@ -1,42 +1,75 @@
-import pandas as pd
-import numpy as np
-from statsmodels.tsa.arima.model import ARIMA
-from typing import List
-from models.schemas import ForecastItem
-from utils.data_fetcher import fetch_historical_ohlcv  # For real API; mock for now
+from core.config import get_settings
+from services.market_service import get_market_summary
+import requests
 
-class ForecastService:
-    def __init__(self, model_class=ARIMA):
-        self.model_class = model_class
 
-    def get_forecast(self, ticker: str) -> List[ForecastItem]:
-        # Use real fetch (uncomment when API key set)
-        # historical = fetch_historical_ohlcv(ticker)
+def _direction(change: float) -> str:
+    if change > 0:
+        return "Bullish"
+    if change < 0:
+        return "Bearish"
+    return "Neutral"
 
-        # Mock historical OHLCV
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=20, freq='H')
-        historical = pd.DataFrame({
-            'open': np.random.uniform(100, 150, 20),
-            'high': np.random.uniform(150, 200, 20),
-            'low': np.random.uniform(50, 100, 20),
-            'close': np.random.uniform(100, 150, 20)
-        }, index=dates)
 
-        model = self.model_class(historical['close'], order=(1,1,1)).fit()
-        forecast = model.forecast(steps=4)
-        conf_int = model.get_forecast(steps=4).conf_int(alpha=0.05)
+def _build_rule_based_projection(ticker: str, last_close: float, change_percent: float, data_source: str) -> dict:
+    trend = _direction(change_percent)
+    volatility_label = "High" if abs(change_percent) >= 2 else "Medium" if abs(change_percent) >= 0.75 else "Low"
+    step = max(abs(change_percent) / 100, 0.003)
+    bias = 1 if change_percent >= 0 else -1
 
-        future_dates = pd.date_range(start=dates[-1] + pd.Timedelta(hours=1), periods=4, freq='H')
-        projections = []
-        for i, date in enumerate(future_dates):
-            close_pred = forecast[i]
-            projections.append(ForecastItem(
-                timestamp=str(date),
-                open=close_pred * 0.99,
-                high=close_pred * 1.02,
-                low=close_pred * 0.98,
-                close=close_pred,
-                lower_bound=conf_int.iloc[i, 0],
-                upper_bound=conf_int.iloc[i, 1]
-            ))
-        return projections
+    candles = []
+    current = last_close
+    for i in range(1, 5):
+        projected_close = current * (1 + bias * step * 0.35)
+        high = max(current, projected_close) * (1 + step * 0.45)
+        low = min(current, projected_close) * (1 - step * 0.45)
+        candles.append({
+            "period": f"T+{i}",
+            "open": round(current, 2),
+            "high": round(high, 2),
+            "low": round(low, 2),
+            "close": round(projected_close, 2),
+            "direction": _direction(projected_close - current),
+        })
+        current = projected_close
+
+    return {
+        "ticker": ticker,
+        "horizon": "Next 4 candles",
+        "trend": trend,
+        "confidence_label": "Moderate" if volatility_label != "High" else "Cautious",
+        "volatility_label": volatility_label,
+        "explanation": "Projection uses recent price change and volatility to create a rule-based short-horizon view.",
+        "data_source": data_source,
+        "candles": candles,
+    }
+
+
+def get_forecast(ticker: str) -> dict:
+    ticker = ticker.upper().strip()
+    settings = get_settings()
+
+    if settings.use_real_market_data and settings.alpha_vantage_api_key:
+        try:
+            url = "https://www.alphavantage.co/query"
+            params = {
+                "function": "TIME_SERIES_DAILY",
+                "symbol": ticker,
+                "outputsize": "compact",
+                "apikey": settings.alpha_vantage_api_key,
+            }
+            response = requests.get(url, params=params, timeout=12)
+            response.raise_for_status()
+            payload = response.json()
+            series = payload.get("Time Series (Daily)", {})
+            if len(series) >= 2:
+                dates = sorted(series.keys(), reverse=True)
+                latest = float(series[dates[0]]["4. close"])
+                previous = float(series[dates[1]]["4. close"])
+                change_percent = ((latest - previous) / previous) * 100
+                return _build_rule_based_projection(ticker, latest, change_percent, "alpha_vantage")
+        except Exception:
+            pass
+
+    summary = get_market_summary(ticker)
+    return _build_rule_based_projection(ticker, summary["price"], summary["change_percent"], summary["data_source"])

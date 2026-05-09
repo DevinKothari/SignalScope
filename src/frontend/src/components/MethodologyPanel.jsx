@@ -2,16 +2,16 @@ function MethodologyPanel() {
   return (
     <section className="panel methodology" id="methodology">
       <div>
-        <p className="eyebrow">Class Submission Scope</p>
-        <h2>Project Methodology</h2>
+        <p className="eyebrow">Methodology</p>
+        <h2>How SignalScope Scores Market Context</h2>
         <p>
-          SignalScope is currently a data science backed prototype. It uses structured scoring logic, headline relevance, market context, and short-term candle calculations to demonstrate the intended workflow without requiring a completed production model.
+          SignalScope uses a rules-based data science approach to organize market information. The dashboard combines headline relevance, source timing, category weight, volatility, and recent price movement to produce a clean trader-facing view.
         </p>
       </div>
       <div className="method-grid">
-        <div><strong>1</strong><span>Collect market and ticker-specific headlines</span></div>
-        <div><strong>2</strong><span>Rank headlines by relevance, proximity, and potential impact</span></div>
-        <div><strong>3</strong><span>Display short-term candle estimates for trader review</span></div>
+        <div><strong>1</strong><span>Rank ticker-specific and macro headlines by market relevance.</span></div>
+        <div><strong>2</strong><span>Compare impact score against price movement and volatility.</span></div>
+        <div><strong>3</strong><span>Display a short-term forecast view with a readable bias signal.</span></div>
       </div>
     </section>
   );

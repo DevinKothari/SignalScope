@@ -1,8 +1,9 @@
-function ForecastChart({ ticker, forecast }) {
+function ForecastChart({ ticker, forecast, summary }) {
   const values = forecast.flatMap((item) => [item.high, item.low, item.upper_bound, item.lower_bound]);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
+  const bias = summary.direction >= 0 ? 'Bullish' : 'Bearish';
 
   const getY = (price) => 220 - ((price - min) / range) * 180;
   const getX = (index) => 45 + index * (500 / Math.max(1, forecast.length - 1));
@@ -16,6 +17,11 @@ function ForecastChart({ ticker, forecast }) {
           <h2>{ticker} Short-Term Candle View</h2>
         </div>
         <span className="badge">Next session estimate</span>
+      </div>
+
+      <div className="forecast-insight">
+        <strong>{bias} bias</strong>
+        <span>Based on recent candle movement, volatility range, and ranked news impact.</span>
       </div>
 
       <div className="chart-wrap">
@@ -47,6 +53,7 @@ function ForecastChart({ ticker, forecast }) {
           })}
         </svg>
       </div>
+      <p className="panel-note">Forecast view is an estimated signal layer, not financial advice.</p>
     </section>
   );
 }

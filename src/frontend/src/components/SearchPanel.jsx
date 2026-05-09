@@ -1,5 +1,3 @@
-const popularTickers = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMD', 'SPY'];
-
 function SearchPanel({ ticker, setTicker, onSearch, status }) {
   return (
     <form className="search-card" onSubmit={onSearch}>
@@ -16,13 +14,7 @@ function SearchPanel({ ticker, setTicker, onSearch, status }) {
           {status === 'loading' ? 'Loading...' : 'Analyze'}
         </button>
       </div>
-      <div className="ticker-pills">
-        {popularTickers.map((symbol) => (
-          <button key={symbol} type="button" onClick={() => setTicker(symbol)}>
-            {symbol}
-          </button>
-        ))}
-      </div>
+      <p className="search-helper">Enter a ticker to refresh the dashboard view.</p>
     </form>
   );
 }
