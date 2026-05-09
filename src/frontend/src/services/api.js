@@ -39,20 +39,26 @@ export async function getTopNews(ticker) {
   }));
 }
 
-export async function getForecast(ticker) {
-  const data = await fetchJson(`/api/forecast?ticker=${encodeURIComponent(ticker)}`);
+export async function getForecast(ticker, timeframe = 'hourly') {
+  const data = await fetchJson(
+    `/api/forecast?ticker=${encodeURIComponent(ticker)}&timeframe=${encodeURIComponent(timeframe)}`
+  );
+
   const candles = Array.isArray(data) ? data : data.candles;
 
   if (!Array.isArray(candles)) return [];
 
   const now = new Date();
+  const incrementMs = timeframe === 'daily'
+    ? 24 * 60 * 60 * 1000
+    : 60 * 60 * 1000;
 
   return candles.map((item, index) => {
     const high = Number(item.high || 0);
     const low = Number(item.low || 0);
 
     return {
-      timestamp: item.timestamp || new Date(now.getTime() + index * 15 * 60 * 1000).toISOString(),
+      timestamp: item.timestamp || new Date(now.getTime() + index * incrementMs).toISOString(),
       open: Number(item.open || 0),
       high,
       low,
@@ -60,7 +66,8 @@ export async function getForecast(ticker) {
       lower_bound: Number(item.lower_bound || (low ? low - 0.75 : 0)),
       upper_bound: Number(item.upper_bound || (high ? high + 0.75 : 0)),
       direction: item.direction || 'Neutral',
-      period: item.period || `T+${index + 1}`
+      period: item.period || (timeframe === 'daily' ? `D+${index + 1}` : `H+${index + 1}`),
+      timeframe
     };
   });
 }
@@ -80,4 +87,30 @@ export async function getMarketSummary(ticker) {
     lastUpdated: data.last_updated || new Date().toISOString(),
     dataSource: data.data_source || 'backend'
   };
+}
+export async function getCandles(ticker, range = '1D') {
+  const data = await fetchJson(
+    `/api/candles?ticker=${encodeURIComponent(ticker)}&range=${encodeURIComponent(range)}`
+  );
+
+  const candles = Array.isArray(data) ? data : data.candles;
+
+  if (!Array.isArray(candles)) return [];
+
+  return candles.map((item) => {
+    const rawTime = String(item.time);
+
+    const formattedTime =
+      rawTime.includes('T')
+        ? Math.floor(new Date(rawTime).getTime() / 1000)
+        : rawTime;
+
+    return {
+      time: formattedTime,
+      open: Number(item.open || 0),
+      high: Number(item.high || 0),
+      low: Number(item.low || 0),
+      close: Number(item.close || 0),
+    };
+  });
 }

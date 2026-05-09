@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api.candles_router import router as candles_router
 
 from api.health_router import router as health_router
 from api.status_router import router as status_router
@@ -33,6 +34,7 @@ app.include_router(news_router)
 app.include_router(forecast_router)
 app.include_router(market_router)
 app.include_router(watchlist_router)
+app.include_router(candles_router)
 
 
 @app.get("/")
