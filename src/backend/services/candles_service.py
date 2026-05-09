@@ -52,12 +52,12 @@ def _series_key(range_value: str) -> str:
 
 def _limit_for_range(range_value: str) -> int:
     limits = {
-        "1D": 78,
-        "1W": 40,
-        "1M": 22,
-        "3M": 66,
-        "1Y": 252,
-        "5Y": 1260,
+        "1D": 288,
+        "1W": 120,
+        "1M": 30,
+        "3M": 90,
+        "1Y": 362,
+        "5Y": 1810,
     }
 
     return limits.get(range_value, 78)

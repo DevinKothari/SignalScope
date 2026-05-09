@@ -114,3 +114,18 @@ export async function getCandles(ticker, range = '1D') {
     };
   });
 }
+export async function getPrediction(ticker, range = '1D') {  const data = await fetchJson(
+    `/api/prediction?ticker=${encodeURIComponent(ticker)}&range=${encodeURIComponent(range)}`
+  );
+
+  return {
+    ticker: data.ticker || ticker,
+    bias: data.bias || 'Neutral',
+    confidence: Number(data.confidence || 0),
+    risk: data.risk || 'Medium',
+    trendStrength: data.trend_strength || 'Moderate',
+    directionalScore: Number(data.directional_score || 0),
+    signals: Array.isArray(data.signals) ? data.signals : [],
+    dataSource: data.data_source || 'backend',
+  };
+}

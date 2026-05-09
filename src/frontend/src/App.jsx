@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getCandles, getForecast, getMarketSummary, getTopNews } from './services/api.js';
+import { getCandles, getForecast, getMarketSummary, getPrediction, getTopNews } from './services/api.js';
 import { buildDemoForecast, buildDemoNews, buildMarketSnapshot } from './services/demoData.js';
 import Header from './components/Header.jsx';
 import SearchPanel from './components/SearchPanel.jsx';
@@ -12,6 +12,7 @@ import MarketStatus from './components/MarketStatus.jsx';
 import StockHeader from './components/StockHeader.jsx';
 import AnalysisSummary from './components/AnalysisSummary.jsx';
 import CandlestickChart from './components/CandlestickChart.jsx';
+import PredictionCard from './components/PredictionCard.jsx';
 
 function App() {
   const [ticker, setTicker] = useState('AAPL');
@@ -22,6 +23,7 @@ function App() {
   const [chartRange, setChartRange] = useState('1D');
   const [candles, setCandles] = useState([]);
   const [marketSummary, setMarketSummary] = useState(null);
+  const [prediction, setPrediction] = useState(null);
   const [status, setStatus] = useState('demo');
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(
@@ -66,16 +68,18 @@ function App() {
     setActiveTicker(cleanTicker);
 
     try {
-      const [newsData, forecastData, summaryData, candleData] = await Promise.all([
+      const [newsData, forecastData, summaryData, candleData, predictionData] = await Promise.all([
         getTopNews(cleanTicker),
-        getForecast(cleanTicker, timeframe),
+        getForecast(cleanTicker, chartRange === '1D' || chartRange === '1W' ? 'hourly' : 'daily'),
         getMarketSummary(cleanTicker),
-        getCandles(cleanTicker, chartRange)
+        getCandles(cleanTicker, chartRange),
+        getPrediction(cleanTicker, chartRange)
       ]);
 
       setNews(Array.isArray(newsData) && newsData.length ? newsData : buildDemoNews(cleanTicker));
       setForecast(Array.isArray(forecastData) && forecastData.length ? forecastData : buildDemoForecast(cleanTicker));
       setCandles(Array.isArray(candleData) ? candleData : []);
+      setPrediction(predictionData);
       setMarketSummary(summaryData?.price ? summaryData : null);
       setStatus(
         summaryData?.data_source === 'alpha_vantage' || summaryData?.data_source === 'alpha_vantage_delayed'
@@ -86,6 +90,7 @@ function App() {
       setNews(buildDemoNews(cleanTicker));
       setForecast(buildDemoForecast(cleanTicker));
       setMarketSummary(null);
+      setPrediction(null);
       setStatus('demo');
       setError('Backend unavailable or API limit reached. Showing fallback data for the selected ticker.');
     } finally {
@@ -99,8 +104,20 @@ function App() {
     setChartRange(range);
 
     try {
-      const candleData = await getCandles(activeTicker, range);
+      const [candleData, predictionData, forecastData] = await Promise.all([
+        getCandles(activeTicker, range),
+        getPrediction(activeTicker, range),
+        getForecast(
+          activeTicker,
+          range === '1D' || range === '1W'
+            ? 'hourly'
+            : 'daily'
+        ),
+      ]);
+
       setCandles(Array.isArray(candleData) ? candleData : []);
+      setPrediction(predictionData);
+      setForecast(Array.isArray(forecastData) ? forecastData : []);
     } catch {
       setCandles([]);
     }
@@ -113,13 +130,19 @@ function App() {
 
   function goHome() {
     setActiveTicker(null);
+    setPrediction(null);
     setError('');
   }
 
   if (!activeTicker) {
     return (
       <main className="app-shell">
-        <Header />
+        <Header
+          ticker={ticker}
+          setTicker={setTicker}
+          onSearch={handleSearch}
+          status={status}
+        />
 
         <section className="hero-card">
           <div>
@@ -162,25 +185,13 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Header />
-
-      <button className="back-button" onClick={goHome}>
-        ← Back to search
-      </button>
-
-      <section className="hero-card stock-hero">
-        <div>
-          <p className="eyebrow">Stock analysis</p>
-          <h1>{activeTicker}</h1>
-          <p className="hero-copy">
-            {status === 'live'
-              ? 'Using Alpha Vantage 15-minute delayed market data.'
-              : 'Using fallback market data while live data is unavailable.'}
-          </p>
-        </div>
-
-        <SearchPanel ticker={ticker} setTicker={setTicker} onSearch={handleSearch} status={status} />
-      </section>
+      <Header
+        ticker={ticker}
+        setTicker={setTicker}
+        onSearch={handleSearch}
+        status={status}
+      />
+      
 
       {error && <div className="notice">{error}</div>}
 
@@ -188,70 +199,41 @@ function App() {
       <MarketStatus lastUpdated={lastUpdated} />
       <MetricCards ticker={activeTicker} summary={summary} status={status} snapshot={snapshot} />
       <AnalysisSummary summary={summary} snapshot={snapshot} status={status} />
+      <PredictionCard prediction={prediction} />
       
-      <section className="timeframe-toggle-card">
-        <div>
-          <p className="eyebrow">Forecast timeframe</p>
-          <h3>{timeframe === 'hourly' ? 'Hourly candle analysis' : 'Daily candle analysis'}</h3>
-        </div>
+      
 
-        <div className="timeframe-toggle-group">
-          <button
-            className={timeframe === 'hourly' ? 'timeframe-button active' : 'timeframe-button'}
-            onClick={() => {
-              setTimeframe('hourly');
-              analyzeTicker(activeTicker);
-            }}
-          >
-            Hourly
-          </button>
+      <section className="stock-detail-full-layout">
+        <section className="chart-shell expanded-chart-shell">
+          <div className="range-toggle-group">
+            {['1D', '1W', '1M', '3M', '1Y', '5Y'].map((range) => (
+              <button
+                key={range}
+                className={chartRange === range ? 'range-button active' : 'range-button'}
+                onClick={() => handleChartRangeChange(range)}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
 
-          <button
-            className={timeframe === 'daily' ? 'timeframe-button active' : 'timeframe-button'}
-            onClick={() => {
-              setTimeframe('daily');
-              analyzeTicker(activeTicker);
-            }}
-          >
-            Daily
-          </button>
-        </div>
-      </section>
+          <CandlestickChart ticker={activeTicker} range={chartRange} candles={candles} />
+        </section>
 
-      <section className="stock-detail-layout">
-        <div className="stock-main-column">
-          <section className="chart-shell">
-            <div className="range-toggle-group">
-              {['1D', '1W', '1M', '3M', '1Y', '5Y'].map((range) => (
-                <button
-                  key={range}
-                  className={chartRange === range ? 'range-button active' : 'range-button'}
-                  onClick={() => handleChartRangeChange(range)}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
+        <section className="watch-card full-width-card">
+          <p className="eyebrow">What to watch</p>
+          <h3>Key signals for {activeTicker}</h3>
+          <ul>
+            <li>Price reaction compared with recent candle direction</li>
+            <li>Prediction bias compared against the selected chart range</li>
+            <li>Volatility level compared with recent candle range</li>
+            <li>Whether short-term momentum stays consistent across candles</li>
+          </ul>
+        </section>
 
-            <CandlestickChart ticker={activeTicker} range={chartRange} candles={candles} />
-          </section>
-
-          <section className="watch-card">
-            <p className="eyebrow">What to watch</p>
-            <h3>Key signals for {activeTicker}</h3>
-            <ul>
-              <li>Price reaction compared with recent candle direction</li>
-              <li>Headline impact score and category concentration</li>
-              <li>Volatility level compared with recent volume</li>
-              <li>Whether the rule-based forecast bias stays consistent</li>
-            </ul>
-          </section>
-        </div>
-
-        <aside className="stock-side-column">
-          <Watchlist activeTicker={activeTicker} onSelect={analyzeTicker} />
+        <section className="full-width-card">
           <NewsTable news={news} />
-        </aside>
+        </section>
       </section>
 
       <MethodologyPanel />

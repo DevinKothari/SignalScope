@@ -1,19 +1,32 @@
-function Header() {
+function Header({
+  ticker,
+  setTicker,
+  onSearch,
+  status,
+}) {
   return (
-    <nav className="top-nav">
-      <div className="brand-lockup">
-        <div className="logo-mark">SS</div>
+    <header className="app-header">
+      <div className="brand-block">
+        <div className="brand-logo">SS</div>
+
         <div>
           <strong>SignalScope</strong>
           <span>Market News + Forecast Dashboard</span>
         </div>
       </div>
-      <div className="nav-links">
-        <a href="#forecast">Forecast</a>
-        <a href="#news">News</a>
-        <a href="#methodology">Methodology</a>
-      </div>
-    </nav>
+
+      <form className="navbar-search" onSubmit={onSearch}>
+        <input
+          value={ticker}
+          onChange={(event) => setTicker(event.target.value.toUpperCase())}
+          placeholder="Search ticker"
+        />
+
+        <button type="submit">
+          {status === 'loading' ? 'Loading...' : 'Analyze'}
+        </button>
+      </form>
+    </header>
   );
 }
 

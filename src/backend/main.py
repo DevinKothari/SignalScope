@@ -8,6 +8,7 @@ from api.news_router import router as news_router
 from api.forecast_router import router as forecast_router
 from api.market_router import router as market_router
 from api.watchlist_router import router as watchlist_router
+from api.prediction_router import router as prediction_router
 
 app = FastAPI(
     title="SignalScope API",
@@ -35,6 +36,7 @@ app.include_router(forecast_router)
 app.include_router(market_router)
 app.include_router(watchlist_router)
 app.include_router(candles_router)
+app.include_router(prediction_router)
 
 
 @app.get("/")
